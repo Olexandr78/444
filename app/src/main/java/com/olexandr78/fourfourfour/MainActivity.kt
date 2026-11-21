@@ -6,7 +6,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -29,7 +30,7 @@ class MainActivity : Activity() {
     private var line = 0
     private var muted = false
     private var speaker = false
-    private var tone: ToneGenerator? = null
+    private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
     private lateinit var root: LinearLayout
 
@@ -67,8 +68,17 @@ class MainActivity : Activity() {
         stopEffects()
         if (screen != Screen.INCOMING) return
         try {
-            tone = ToneGenerator(AudioManager.STREAM_RING, 65).also {
-                it.startTone(ToneGenerator.TONE_SUP_RINGTONE, 15000)
+            // Use the actual ringtone selected by the device owner in Android settings.
+            val ringtoneUri = RingtoneManager.getActualDefaultRingtoneUri(
+                this, RingtoneManager.TYPE_RINGTONE
+            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            ringtone = RingtoneManager.getRingtone(this, ringtoneUri)?.also { sound ->
+                sound.audioAttributes = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                if (Build.VERSION.SDK_INT >= 28) sound.isLooping = true
+                sound.play()
             }
         } catch (_: Exception) { }
         try {
@@ -82,8 +92,8 @@ class MainActivity : Activity() {
     }
 
     private fun stopEffects() {
-        try { tone?.stopTone(); tone?.release() } catch (_: Exception) { }
-        tone = null
+        try { ringtone?.stop() } catch (_: Exception) { }
+        ringtone = null
         try { vibrator?.cancel() } catch (_: Exception) { }
     }
 
