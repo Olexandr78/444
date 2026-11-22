@@ -10,9 +10,11 @@ android {
     defaultConfig {
         applicationId = "com.olexandr78.fourfourfour"
         minSdk = 23
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Android 14+ pre-grants SCHEDULE_EXACT_ALARM to apps targeting API 32 or lower.
+        // This sideloaded app uses exact alarms for its explicitly enabled 03:00 scenario.
+        targetSdk = 32
+        versionCode = 2
+        versionName = "1.1"
     }
 
     compileOptions {
