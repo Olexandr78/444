@@ -162,7 +162,7 @@ class CallActivity:Activity(){
   }
   control("Клавиатура","▦"){Toast.makeText(this,"Клавиатура вызова",Toast.LENGTH_SHORT).show()}
   control("Микрофон","♩"){muted=!muted;Toast.makeText(this,if(muted)"Микрофон выключен" else "Микрофон включён",Toast.LENGTH_SHORT).show()}
-  control("Динамик","◖)){speaker=!speaker;Toast.makeText(this,if(speaker)"Динамик включён" else "Динамик выключен",Toast.LENGTH_SHORT).show()}
+  control("Динамик","◖"){speaker=!speaker;Toast.makeText(this,if(speaker)"Динамик включён" else "Динамик выключен",Toast.LENGTH_SHORT).show()}
   control("Ещё","⋮"){Toast.makeText(this,"Дополнительные действия",Toast.LENGTH_SHORT).show()}
   root.addView(controls)
   val gap=View(this);root.addView(gap,LinearLayout.LayoutParams(1,dp(28)))
