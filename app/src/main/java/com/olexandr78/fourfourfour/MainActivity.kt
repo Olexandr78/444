@@ -5,6 +5,9 @@ import android.app.*
 import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.Ringtone
@@ -93,6 +96,20 @@ class CallActivity:Activity(){
   this.text=text;textSize=15f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)
   background=circle(color);isClickable=true;isFocusable=true;setOnClickListener{onClick()}
  }
+ private fun imageButton(asset:String,x:Int,y:Int,w:Int,h:Int,round:Boolean,onClick:()->Unit):ImageView{
+  val encoded=assets.open(asset).bufferedReader().use{it.readText()}
+  val bytes=Base64.decode(encoded,Base64.DEFAULT)
+  val source=BitmapFactory.decodeByteArray(bytes,0,bytes.size)
+  val crop=Bitmap.createBitmap(source,x,y,w,h)
+  return ImageView(this).apply{
+   setImageBitmap(crop);scaleType=ImageView.ScaleType.FIT_XY
+   background=GradientDrawable().apply{
+    shape=if(round)GradientDrawable.OVAL else GradientDrawable.RECTANGLE
+    if(!round)cornerRadius=dp(28).toFloat()
+   }
+   clipToOutline=true;isClickable=true;isFocusable=true;setOnClickListener{onClick()}
+  }
+ }
  override fun onCreate(b:Bundle?){
   super.onCreate(b)
   window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -124,8 +141,8 @@ class CallActivity:Activity(){
   root.addView(label("Неизвестный номер",16f,Color.rgb(111,99,111)))
   val mid=View(this);root.addView(mid,LinearLayout.LayoutParams(1,0,0.9f))
   val buttons=LinearLayout(this).apply{gravity=Gravity.CENTER;orientation=LinearLayout.HORIZONTAL}
-  val decline=actionButton("✕",Color.rgb(218,48,45)){closeCall()}
-  val answer=actionButton("☎",Color.rgb(27,151,77)){connectCall()}
+  val decline=imageButton("call_incoming.jpg.b64",53,613,64,64,true){closeCall()}
+  val answer=imageButton("call_incoming.jpg.b64",254,613,64,64,true){connectCall()}
   buttons.addView(decline,LinearLayout.LayoutParams(dp(76),dp(76)).apply{marginEnd=dp(76)})
   buttons.addView(answer,LinearLayout.LayoutParams(dp(76),dp(76)))
   root.addView(buttons)
@@ -150,23 +167,20 @@ class CallActivity:Activity(){
   root.addView(label("Мобильный вызов",14f,Color.rgb(190,174,166)))
   val spacer=View(this);root.addView(spacer,LinearLayout.LayoutParams(1,0,1f))
   val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER}
-  fun control(title:String,initial:String,click:()->Unit){
+  fun control(title:String,x:Int,click:()->Unit){
    val col=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER}
-   val circle=TextView(this@CallActivity).apply{
-    text=initial;textSize=23f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)
-    background=circle(Color.BLACK);isClickable=true;setOnClickListener{click()}
-   }
-   col.addView(circle,LinearLayout.LayoutParams(dp(66),dp(66)))
+   val button=imageButton("call_active.jpg.b64",x,574,72,72,true,click)
+   col.addView(button,LinearLayout.LayoutParams(dp(66),dp(66)))
    col.addView(label(title,12f,Color.WHITE),LinearLayout.LayoutParams(dp(76),dp(34)))
    controls.addView(col,LinearLayout.LayoutParams(0,dp(108),1f))
   }
-  control("Клавиатура","▦"){Toast.makeText(this,"Клавиатура вызова",Toast.LENGTH_SHORT).show()}
-  control("Микрофон","♩"){muted=!muted;Toast.makeText(this,if(muted)"Микрофон выключен" else "Микрофон включён",Toast.LENGTH_SHORT).show()}
-  control("Динамик","◖"){speaker=!speaker;Toast.makeText(this,if(speaker)"Динамик включён" else "Динамик выключен",Toast.LENGTH_SHORT).show()}
-  control("Ещё","⋮"){Toast.makeText(this,"Дополнительные действия",Toast.LENGTH_SHORT).show()}
+  control("Клавиатура",24){Toast.makeText(this,"Клавиатура вызова",Toast.LENGTH_SHORT).show()}
+  control("Микрофон",108){muted=!muted;Toast.makeText(this,if(muted)"Микрофон выключен" else "Микрофон включён",Toast.LENGTH_SHORT).show()}
+  control("Динамик",192){speaker=!speaker;Toast.makeText(this,if(speaker)"Динамик включён" else "Динамик выключен",Toast.LENGTH_SHORT).show()}
+  control("Ещё",275){Toast.makeText(this,"Дополнительные действия",Toast.LENGTH_SHORT).show()}
   root.addView(controls)
   val gap=View(this);root.addView(gap,LinearLayout.LayoutParams(1,dp(28)))
-  val end=actionButton("📞",Color.rgb(235,91,83)){closeCall()}.apply{rotation=135f}
+  val end=imageButton("call_active.jpg.b64",105,707,162,59,false){closeCall()}
   root.addView(end,LinearLayout.LayoutParams(dp(144),dp(62)))
   if(connectedAt==0L)connectedAt=SystemClock.elapsedRealtime()
   handler.removeCallbacks(timerTick);timerTick.run()
