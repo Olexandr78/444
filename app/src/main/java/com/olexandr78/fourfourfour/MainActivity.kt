@@ -141,10 +141,14 @@ class CallActivity:Activity(){
   root.addView(label("Неизвестный номер",16f,Color.rgb(111,99,111)))
   val mid=View(this);root.addView(mid,LinearLayout.LayoutParams(1,0,0.9f))
   val buttons=LinearLayout(this).apply{gravity=Gravity.CENTER;orientation=LinearLayout.HORIZONTAL}
-  val decline=imageButton("call_incoming.jpg.b64",53,613,64,64,true){closeCall()}
-  val answer=imageButton("call_incoming.jpg.b64",254,613,64,64,true){connectCall()}
-  buttons.addView(decline,LinearLayout.LayoutParams(dp(76),dp(76)).apply{marginEnd=dp(76)})
-  buttons.addView(answer,LinearLayout.LayoutParams(dp(76),dp(76)))
+  val decline=imageButton("call_incoming.jpg.b64",45,613,80,64,true){closeCall()}
+  val answer=imageButton("call_incoming.jpg.b64",246,613,80,64,true){connectCall()}
+  buttons.addView(decline,LinearLayout.LayoutParams(dp(76),dp(64)).apply{marginEnd=dp(76)})
+  buttons.addView(answer,LinearLayout.LayoutParams(dp(76),dp(64)))
+  val message=imageButton("call_incoming.jpg.b64",131,540,109,50,false){
+   Toast.makeText(this,"Сообщение недоступно для этого вызова",Toast.LENGTH_SHORT).show()
+  }
+  root.addView(message,LinearLayout.LayoutParams(dp(108),dp(50)).apply{bottomMargin=dp(28)})
   root.addView(buttons)
   val captions=LinearLayout(this).apply{gravity=Gravity.CENTER;orientation=LinearLayout.HORIZONTAL}
   captions.addView(label("Отклонить",13f,Color.rgb(62,54,62)),LinearLayout.LayoutParams(dp(152),dp(38)))
