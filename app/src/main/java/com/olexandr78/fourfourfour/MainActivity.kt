@@ -166,7 +166,7 @@ class CallActivity:Activity(){
   control("Ещё","⋮"){Toast.makeText(this,"Дополнительные действия",Toast.LENGTH_SHORT).show()}
   root.addView(controls)
   val gap=View(this);root.addView(gap,LinearLayout.LayoutParams(1,dp(28)))
-  val end=actionButton("⌕",Color.rgb(235,91,83)){closeCall()}
+  val end=actionButton("📞",Color.rgb(235,91,83)){closeCall()}.apply{rotation=135f}
   root.addView(end,LinearLayout.LayoutParams(dp(144),dp(62)))
   if(connectedAt==0L)connectedAt=SystemClock.elapsedRealtime()
   handler.removeCallbacks(timerTick);timerTick.run()
