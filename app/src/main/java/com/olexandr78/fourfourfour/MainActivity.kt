@@ -67,20 +67,131 @@ class NightReceiver:BroadcastReceiver(){
 }
 class DeclineReceiver:BroadcastReceiver(){override fun onReceive(c:Context,i:Intent?){(c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(444)}}
 class CallActivity:Activity(){
- private var ring:Ringtone?=null;private var vib:Vibrator?=null
- override fun onCreate(b:Bundle?){super.onCreate(b);window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);window.statusBarColor=Color.rgb(25,30,38);window.navigationBarColor=Color.rgb(25,30,38)
- val root=LinearLayout(this).apply{orientation=1;gravity=Gravity.CENTER;setPadding(28,40,28,40);setBackgroundColor(Color.rgb(25,30,38))};setContentView(root)
- val state=TextView(this).apply{text=if(intent.getBooleanExtra("answer",false))"Вызов соединён" else "Входящий вызов";textSize=17f;gravity=Gravity.CENTER;setTextColor(Color.LTGRAY)}
- root.addView(TextView(this).apply{text="444";textSize=40f;gravity=Gravity.CENTER;setTextColor(Color.WHITE);typeface=Typeface.DEFAULT_BOLD});root.addView(state)
- val spacer=View(this);root.addView(spacer,LinearLayout.LayoutParams(1,0,1f));val row=LinearLayout(this).apply{gravity=Gravity.CENTER}
- row.addView(Button(this).apply{text="Отклонить";setOnClickListener{closeCall()}})
- row.addView(Button(this).apply{text="Ответить";setOnClickListener{stopSound();state.text="Вызов соединён";root.removeView(row);root.addView(TextView(this@CallActivity).apply{text="Ты всё-таки ответил.";textSize=22f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)})}});root.addView(row)
- if(!intent.getBooleanExtra("answer",false))startSound()
+ private var ring:Ringtone?=null
+ private var vib:Vibrator?=null
+ private val handler=Handler(Looper.getMainLooper())
+ private var connectedAt=0L
+ private var muted=false
+ private var speaker=false
+ private lateinit var root:LinearLayout
+ private lateinit var timer:TextView
+ private val timerTick=object:Runnable{
+  override fun run(){
+   if(connectedAt==0L)return
+   val seconds=((SystemClock.elapsedRealtime()-connectedAt)/1000).toInt()
+   timer.text=String.format("%02d:%02d",seconds/60,seconds%60)
+   handler.postDelayed(this,1000)
+  }
  }
- private fun startSound(){try{val u=RingtoneManager.getActualDefaultRingtoneUri(this,RingtoneManager.TYPE_RINGTONE)?:RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);ring=RingtoneManager.getRingtone(this,u)?.also{if(Build.VERSION.SDK_INT>=28)it.isLooping=true;it.play()}}catch(_:Exception){}
- vib=if(Build.VERSION.SDK_INT>=31)(getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator else @Suppress("DEPRECATION") (getSystemService(VIBRATOR_SERVICE) as Vibrator)
- try{val p=longArrayOf(0,700,500,700,1000);if(Build.VERSION.SDK_INT>=26)vib?.vibrate(VibrationEffect.createWaveform(p,0))else @Suppress("DEPRECATION") vib?.vibrate(p,0)}catch(_:Exception){}}
- private fun stopSound(){try{ring?.stop()}catch(_:Exception){};ring=null;vib?.cancel()}
- private fun closeCall(){stopSound();(getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(444);finish()}
- override fun onDestroy(){stopSound();super.onDestroy()}
+ private fun dp(v:Int)=(v*resources.displayMetrics.density).toInt()
+ private fun label(s:String,size:Float,color:Int,bold:Boolean=false)=TextView(this).apply{
+  text=s;textSize=size;setTextColor(color);gravity=Gravity.CENTER
+  if(bold)typeface=Typeface.DEFAULT_BOLD
+ }
+ private fun circle(color:Int)=GradientDrawable().apply{shape=GradientDrawable.OVAL;setColor(color)}
+ private fun actionButton(text:String,color:Int,onClick:()->Unit)=TextView(this).apply{
+  this.text=text;textSize=15f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)
+  background=circle(color);isClickable=true;isFocusable=true;setOnClickListener{onClick()}
+ }
+ override fun onCreate(b:Bundle?){
+  super.onCreate(b)
+  window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  val answered=intent.getBooleanExtra("answer",false)
+  if(answered)showActive() else showIncoming()
+ }
+ private fun base(bg:Int,lightBars:Boolean){
+  window.statusBarColor=bg;window.navigationBarColor=bg
+  window.decorView.systemUiVisibility=if(lightBars)View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0
+  root=LinearLayout(this).apply{
+   orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER
+   setPadding(dp(24),dp(28),dp(24),dp(24));setBackgroundColor(bg)
+  }
+  setContentView(root)
+ }
+ private fun showIncoming(){
+  val bg=Color.rgb(247,235,246)
+  base(bg,true)
+  root.addView(label("ВХОДЯЩИЙ ВЫЗОВ",13f,Color.rgb(112,99,112)))
+  val space=View(this);root.addView(space,LinearLayout.LayoutParams(1,0,0.7f))
+  val avatar=FrameLayout(this).apply{
+   background=circle(Color.rgb(191,160,190))
+   elevation=dp(4).toFloat()
+  }
+  avatar.addView(label("444",38f,Color.WHITE,true),FrameLayout.LayoutParams(dp(132),dp(132),Gravity.CENTER))
+  root.addView(avatar,LinearLayout.LayoutParams(dp(132),dp(132)))
+  val spacer=View(this);root.addView(spacer,LinearLayout.LayoutParams(1,dp(26)))
+  root.addView(label("444",34f,Color.rgb(42,34,43)))
+  root.addView(label("Неизвестный номер",16f,Color.rgb(111,99,111)))
+  val mid=View(this);root.addView(mid,LinearLayout.LayoutParams(1,0,0.9f))
+  val buttons=LinearLayout(this).apply{gravity=Gravity.CENTER;orientation=LinearLayout.HORIZONTAL}
+  val decline=actionButton("✕",Color.rgb(218,48,45)){closeCall()}
+  val answer=actionButton("☎",Color.rgb(27,151,77)){connectCall()}
+  buttons.addView(decline,LinearLayout.LayoutParams(dp(76),dp(76)).apply{marginEnd=dp(76)})
+  buttons.addView(answer,LinearLayout.LayoutParams(dp(76),dp(76)))
+  root.addView(buttons)
+  val captions=LinearLayout(this).apply{gravity=Gravity.CENTER;orientation=LinearLayout.HORIZONTAL}
+  captions.addView(label("Отклонить",13f,Color.rgb(62,54,62)),LinearLayout.LayoutParams(dp(152),dp(38)))
+  captions.addView(label("Ответить",13f,Color.rgb(62,54,62)),LinearLayout.LayoutParams(dp(152),dp(38)))
+  root.addView(captions)
+  if(Build.VERSION.SDK_INT>=21)root.addView(label(" ",10f,Color.GRAY))
+  startSound()
+ }
+ private fun connectCall(){
+  stopSound()
+  (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(444)
+  connectedAt=SystemClock.elapsedRealtime()
+  showActive()
+ }
+ private fun showActive(){
+  val bg=Color.rgb(35,20,16)
+  base(bg,false)
+  root.addView(label("00:00",16f,Color.rgb(220,205,197)).also{timer=it})
+  root.addView(label("444",38f,Color.WHITE))
+  root.addView(label("Мобильный вызов",14f,Color.rgb(190,174,166)))
+  val spacer=View(this);root.addView(spacer,LinearLayout.LayoutParams(1,0,1f))
+  val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER}
+  fun control(title:String,initial:String,click:()->Unit){
+   val col=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER}
+   val circle=TextView(this@CallActivity).apply{
+    text=initial;textSize=23f;gravity=Gravity.CENTER;setTextColor(Color.WHITE)
+    background=circle(Color.BLACK);isClickable=true;setOnClickListener{click()}
+   }
+   col.addView(circle,LinearLayout.LayoutParams(dp(66),dp(66)))
+   col.addView(label(title,12f,Color.WHITE),LinearLayout.LayoutParams(dp(76),dp(34)))
+   controls.addView(col,LinearLayout.LayoutParams(0,dp(108),1f))
+  }
+  control("Клавиатура","▦"){Toast.makeText(this,"Клавиатура вызова",Toast.LENGTH_SHORT).show()}
+  control("Микрофон","♩"){muted=!muted;Toast.makeText(this,if(muted)"Микрофон выключен" else "Микрофон включён",Toast.LENGTH_SHORT).show()}
+  control("Динамик","◖)){speaker=!speaker;Toast.makeText(this,if(speaker)"Динамик включён" else "Динамик выключен",Toast.LENGTH_SHORT).show()}
+  control("Ещё","⋮"){Toast.makeText(this,"Дополнительные действия",Toast.LENGTH_SHORT).show()}
+  root.addView(controls)
+  val gap=View(this);root.addView(gap,LinearLayout.LayoutParams(1,dp(28)))
+  val end=actionButton("⌕",Color.rgb(235,91,83)){closeCall()}
+  root.addView(end,LinearLayout.LayoutParams(dp(144),dp(62)))
+  if(connectedAt==0L)connectedAt=SystemClock.elapsedRealtime()
+  handler.removeCallbacks(timerTick);timerTick.run()
+ }
+ private fun startSound(){
+  try{
+   val u=RingtoneManager.getActualDefaultRingtoneUri(this,RingtoneManager.TYPE_RINGTONE)?:RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+   ring=RingtoneManager.getRingtone(this,u)?.also{if(Build.VERSION.SDK_INT>=28)it.isLooping=true;it.play()}
+  }catch(_:Exception){}
+  vib=if(Build.VERSION.SDK_INT>=31)(getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator else @Suppress("DEPRECATION") (getSystemService(VIBRATOR_SERVICE) as Vibrator)
+  try{
+   val p=longArrayOf(0,700,500,700,1000)
+   if(Build.VERSION.SDK_INT>=26)vib?.vibrate(VibrationEffect.createWaveform(p,0))else @Suppress("DEPRECATION") vib?.vibrate(p,0)
+  }catch(_:Exception){}
+ }
+ private fun stopSound(){
+  try{ring?.stop()}catch(_:Exception){}
+  ring=null;vib?.cancel()
+ }
+ private fun closeCall(){
+  stopSound();handler.removeCallbacks(timerTick)
+  (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(444)
+  finish()
+ }
+ override fun onDestroy(){
+  stopSound();handler.removeCallbacks(timerTick);super.onDestroy()
+ }
 }
